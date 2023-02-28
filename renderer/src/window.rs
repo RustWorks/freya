@@ -8,7 +8,7 @@ use gl::types::*;
 use glutin::dpi::PhysicalSize;
 use glutin::event_loop::EventLoop;
 use glutin::{window::WindowBuilder, GlProfile};
-use skia_safe::Color;
+use skia_safe::{Color, Matrix, M44, V3};
 use skia_safe::{gpu::DirectContext, textlayout::FontCollection};
 use skia_safe::{
     gpu::{gl::FramebufferInfo, BackendRenderTarget, SurfaceOrigin},
@@ -90,6 +90,8 @@ impl<T: Clone> WindowEnv<T> {
         let sf = windowed_context.window().scale_factor() as f32;
         surface.canvas().scale((sf, sf));
 
+        
+
         WindowEnv {
             surface,
             gr_context,
@@ -124,7 +126,7 @@ impl<T: Clone> WindowEnv<T> {
         let (layers, viewports) = process_layout(
             &self.rdom,
             NodeArea {
-                width: window_size.width as f32,
+                width: window_size.width as f32 / 2.0,
                 height: window_size.height as f32,
                 x: 0.0,
                 y: 0.0,
@@ -136,15 +138,32 @@ impl<T: Clone> WindowEnv<T> {
         self.viewports_collection = viewports;
     }
 
-    /// Redraw the window
-    pub fn render(&mut self, hovered_node: &HoveredNode) {
+    pub fn inner_render(&mut self, hovered_node: &HoveredNode, d3: bool) {
         let canvas = self.surface.canvas();
 
-        canvas.clear(if self.window_config.decorations {
-            Color::WHITE
-        } else {
-            Color::TRANSPARENT
-        });
+        let size = self.windowed_context.window().inner_size();
+        let width = size.width as f32;
+        let height = size.height as f32;
+
+        if d3 {
+
+           
+            let mut matrix = Matrix::new_identity();
+            matrix.set_scale((0.9, 0.9), None);
+            let mut matrix44 = M44::new_identity();
+            matrix44.post_concat(&M44::rotate(V3::new(1.0, 0.0, 0.0), -100.0));
+            matrix44.post_concat(&M44::rotate(V3::new(0.0, 1.0, 0.0), 150.0));
+            matrix44.post_concat(&M44::rotate(V3::new(0.0, 0.0, 1.0), 75.0));
+            matrix.post_concat(&matrix44.to_m33());
+            matrix.set_translate_x(width / 2.0);
+            matrix.set_translate_y((height / 2.0) - (height / 3.0));
+            
+
+            canvas.concat(&matrix);
+
+          
+        }
+           
 
         process_render(
             &self.viewports_collection,
@@ -154,6 +173,7 @@ impl<T: Clone> WindowEnv<T> {
             canvas,
             |dom, element, font_collection, viewports_collection, canvas| {
                 canvas.save();
+                
                 let render_wireframe = if let Some(hovered_node) = &hovered_node {
                     hovered_node
                         .lock()
@@ -175,6 +195,21 @@ impl<T: Clone> WindowEnv<T> {
             },
         );
 
+        canvas.reset_matrix();
+    }
+
+     pub fn start_render(&mut self) {
+        let canvas = self.surface.canvas();
+
+        canvas.clear(if self.window_config.decorations {
+            Color::WHITE
+        } else {
+            Color::TRANSPARENT
+        });
+    }
+
+    /// Redraw the window
+    pub fn render(&mut self) {
         self.gr_context.flush(None);
         self.windowed_context.swap_buffers().unwrap();
     }

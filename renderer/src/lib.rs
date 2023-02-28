@@ -101,7 +101,10 @@ pub fn run<T: 'static + Clone>(
             }
             Event::RedrawRequested(_) => {
                 window_env.process_layout();
-                window_env.render(&hovered_node);
+                window_env.start_render();
+                window_env.inner_render(&hovered_node, false);
+                window_env.inner_render(&hovered_node, true);
+                window_env.render();
             }
             Event::WindowEvent { event, .. } => {
                 match event {
